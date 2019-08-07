@@ -48,11 +48,11 @@
                 float3 n = _NormalBuffer[idx];
                 float3 b = cross(t, n);
 
+                float isCap = abs(cap);
                 float3 normal = n * cos(phi) + b * sin(phi);
-                float4 position = float4(p + normal * _Radius * (1 - abs(cap)), 1);
-
-                v.vertex = position;
-                v.normal = normal * (1 - abs(cap));
+                
+                v.vertex = float4(p + normal * _Radius * (1 - isCap), 1);
+                v.normal = normal * (1 - isCap) + n * cap;
             #endif
         }
 
