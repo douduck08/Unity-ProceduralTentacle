@@ -9,10 +9,10 @@
     SubShader
     {
         Tags { "RenderType"="Opaque" }
-        LOD 200
 
         CGPROGRAM
         #pragma surface surf Standard vertex:vert addshadow nolightmap
+        #pragma instancing_options procedural:setup
         #pragma target 5.0
 
         struct Input {
@@ -22,7 +22,6 @@
         half _Glossiness;
         half _Metallic;
         half4 _Color;
-        half _Radius;
 
         UNITY_INSTANCING_BUFFER_START(Props)
         // put more per-instance properties here
@@ -32,7 +31,12 @@
             StructuredBuffer<float3> _PositionBuffer;
             StructuredBuffer<float3> _TangentBuffer;
             StructuredBuffer<float3> _NormalBuffer;
+
+            half _Radius;
+            uint _SegmentNumber;
         #endif
+
+        void setup() { }
 
         void vert(inout appdata_full v, out Input data) {
             UNITY_INITIALIZE_OUTPUT(Input, data);
@@ -42,7 +46,12 @@
                 float cap = v.vertex.y; // -1:head, +1:tail
                 float seg = v.vertex.z; // Segment index
 
-                uint idx = (uint)seg;
+                #ifdef UNITY_PROCEDURAL_INSTANCING_ENABLED
+                    uint idx = _SegmentNumber * unity_InstanceID + (uint)seg;
+                #else
+                    uint idx = (uint)seg;
+                #endif
+
                 float3 p = _PositionBuffer[idx];
                 float3 t = _TangentBuffer[idx];
                 float3 n = _NormalBuffer[idx];
@@ -50,9 +59,14 @@
 
                 float isCap = abs(cap);
                 float3 normal = n * cos(phi) + b * sin(phi);
-                
-                v.vertex = float4(p + normal * _Radius * (1 - isCap), 1);
-                v.normal = normal * (1 - isCap) + n * cap;
+
+                #ifdef UNITY_PROCEDURAL_INSTANCING_ENABLED
+                    v.vertex = float4(p + normal * _Radius * (1 - isCap), 1);
+                    v.normal = normal * (1 - isCap) + n * cap;
+                #else
+                    v.vertex = float4(p + normal * _Radius * (1 - isCap), 1);
+                    v.normal = normal * (1 - isCap) + n * cap;
+                #endif
             #endif
         }
 

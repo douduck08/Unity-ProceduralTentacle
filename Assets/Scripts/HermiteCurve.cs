@@ -100,8 +100,8 @@ public static class HermiteCurve {
         for (int i = 0; i < subdivisions; i++) {
             var t = 1f * i / subdivisions * (nodes.Length - 1);
             var idx = Mathf.FloorToInt (t);
-            var pointFrom = nodes[idx].position + nodes[idx].right * offset.x + nodes[idx].up * offset.y;
-            var pointTo = nodes[idx + 1].position + nodes[idx + 1].right * offset.x + nodes[idx + 1].up * offset.y;
+            var pointFrom = nodes[idx].position + nodes[idx].right * nodes[idx].localScale.x * offset.x + nodes[idx].up * nodes[idx].localScale.y * offset.y;
+            var pointTo = nodes[idx + 1].position + nodes[idx + 1].right * nodes[idx + 1].localScale.x * offset.x + nodes[idx + 1].up * nodes[idx + 1].localScale.y * offset.y;
 
             var pointA = pointFrom;
             var pointB = pointTo;
@@ -125,7 +125,7 @@ public static class HermiteCurve {
             tangents[i] = tangent;
             normals[i] = normal;
         }
-        points[subdivisions] = nodes[nodes.Length - 1].position;
+        points[subdivisions] = nodes[nodes.Length - 1].position + nodes[nodes.Length - 1].right * offset.x + nodes[nodes.Length - 1].up * offset.y;;
         tangents[subdivisions] = nodes[nodes.Length - 1].forward;
         normals[subdivisions] = nodes[nodes.Length - 1].right;
         return points;

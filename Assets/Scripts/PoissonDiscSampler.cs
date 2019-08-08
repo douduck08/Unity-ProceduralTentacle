@@ -19,7 +19,7 @@ public static class PoissonDiscSampler {
             var spawnSuccess = false;
             for (int i = 0; i < samplesBeforeRejection; i++) {
                 var angle = Random.value * Mathf.PI * 2f;
-                var candidatePoint = spawnCenter + new Vector2 (Mathf.Cos (angle), Mathf.Sin (angle));
+                var candidatePoint = spawnCenter + new Vector2 (Mathf.Cos (angle), Mathf.Sin (angle)) * Random.Range (radius, radius * 2f);
                 if (IsValidatePoint (candidatePoint, radius, regionSize, cellSize, points, grid)) {
                     points.Add (candidatePoint);
                     spawnPoints.Add (candidatePoint);
