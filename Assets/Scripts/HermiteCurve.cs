@@ -4,130 +4,136 @@ using UnityEngine;
 
 public static class HermiteCurve {
 
-    public static Vector3 GetPoint (Transform from, Transform to, float t) {
-        var pointA = from.position;
-        var pointB = to.position;
-        var dirA = from.forward * from.localScale.z;
-        var dirB = to.forward * to.localScale.z;
-
+    public static Vector3 GetPoint (Vector3 pointA, Vector3 pointB, Vector3 tangentA, Vector3 tangentB, float t) {
         var t2 = t * t;
         var t3 = t2 * t;
-        var point = (2 * t3 - 3 * t2 + 1) * pointA + (t3 - 2 * t2 + t) * dirA + (-2 * t3 + 3 * t2) * pointB + (t3 - t2) * dirB;
+        var point = (2 * t3 - 3 * t2 + 1) * pointA + (t3 - 2 * t2 + t) * tangentA + (-2 * t3 + 3 * t2) * pointB + (t3 - t2) * tangentB;
         return point;
     }
 
-    public static Vector3[] GetPoints (Transform from, Transform to, int subdivisions) {
-        var pointA = from.position;
-        var pointB = to.position;
-        var dirA = from.forward * from.localScale.z;
-        var dirB = to.forward * to.localScale.z;
+    public static Vector3 GetPoint (Transform from, Transform to, float t) {
+        return GetPoint (from.position, to.position, from.forward * from.localScale.z, to.forward * to.localScale.z, t);
+    }
 
+    public static Vector3 GetTangent (Vector3 pointA, Vector3 pointB, Vector3 tangentA, Vector3 tangentB, float t) {
+        var t2 = t * t;
+        var t3 = t2 * t;
+        var tangent = (6 * t2 - 6 * t) * pointA + (3 * t2 - 4 * t + 1) * tangentA + (-6 * t2 + 6 * t) * pointB + (3 * t2 - 2 * t) * tangentB;
+        return tangent;
+    }
+
+    public static Vector3 GetTangent (Transform from, Transform to, float t) {
+        return GetTangent (from.position, to.position, from.forward * from.localScale.z, to.forward * to.localScale.z, t);
+    }
+
+    public static Vector3[] GetPoints (Vector3 pointA, Vector3 pointB, Vector3 tangentA, Vector3 tangentB, int subdivisions) {
         Vector3[] points = new Vector3[subdivisions + 1];
         for (int i = 0; i < subdivisions; i++) {
             var t = 1f * i / subdivisions;
-            var t2 = t * t;
-            var t3 = t2 * t;
-            var point = (2 * t3 - 3 * t2 + 1) * pointA + (t3 - 2 * t2 + t) * dirA + (-2 * t3 + 3 * t2) * pointB + (t3 - t2) * dirB;
-            points[i] = point;
+            points[i] = GetPoint (pointA, pointB, tangentA, tangentB, t);
         }
         points[subdivisions] = pointB;
         return points;
     }
 
-    public static Vector3[] GetPoints (Transform[] nodes, int subdivisions) {
+    public static Vector3[] GetPoints (Transform from, Transform to, int subdivisions) {
+        return GetPoints (from.position, to.position, from.forward * from.localScale.z, to.forward * to.localScale.z, subdivisions);
+    }
+
+    public static Vector3[] GetPoints (Vector3 pointA, Vector3 pointB, Vector3 tangentA, Vector3 tangentB, int subdivisions, float tMin, float tMax) {
+        Vector3[] points = new Vector3[subdivisions + 1];
+        for (int i = 0; i < subdivisions; i++) {
+            var t = Mathf.Lerp (tMin, tMax, 1f * i / subdivisions);
+            points[i] = GetPoint (pointA, pointB, tangentA, tangentB, t);
+        }
+        points[subdivisions] = pointB;
+        return points;
+    }
+
+    public static Vector3[] GetPoints (Transform from, Transform to, int subdivisions, float tMin, float tMax) {
+        return GetPoints (from.position, to.position, from.forward * from.localScale.z, to.forward * to.localScale.z, subdivisions, tMin, tMax);
+    }
+
+    public static Vector3[] GetPoints (Vector3[] inputPoints, Vector3[] inputTangents, int subdivisions) {
+        if (inputPoints.Length != inputTangents.Length) {
+            throw new System.InvalidOperationException ("'inputPoints' and 'inputTangents' should have the same length");
+        }
+
+        var inputLength = inputPoints.Length;
         var points = new Vector3[subdivisions + 1];
         for (int i = 0; i < subdivisions; i++) {
-            var t = 1f * i / subdivisions * (nodes.Length - 1);
+            var t = 1f * i / subdivisions * (inputLength - 1);
+            var idx = Mathf.FloorToInt (t);
+            points[i] = GetPoint (inputPoints[idx], inputPoints[idx + 1], inputTangents[idx], inputTangents[idx + 1], t % 1f);
+        }
+        points[subdivisions] = inputPoints[inputLength - 1];
+        return points;
+    }
+
+    public static Vector3[] GetPoints (Transform[] nodes, int subdivisions) {
+        var inputPoints = new Vector3[nodes.Length];
+        var inputTangents = new Vector3[nodes.Length];
+        for (int i = 0; i < nodes.Length; i++) {
+            inputPoints[i] = nodes[i].position;
+            inputTangents[i] = nodes[i].forward * nodes[i].localScale.z;
+        }
+        return GetPoints (inputPoints, inputTangents, subdivisions);
+    }
+
+    public static Vector3[] GetPoints (Vector3[] inputPoints, Vector3[] inputTangents, Vector3[] inputUps, int subdivisions, out Vector3[] tangents, out Vector3[] normals) {
+        if (inputPoints.Length != inputTangents.Length) {
+            throw new System.InvalidOperationException ("'inputPoints' and 'inputTangents' should have the same length");
+        }
+        if (inputPoints.Length != inputUps.Length) {
+            throw new System.InvalidOperationException ("'inputPoints' and 'inputUps' should have the same length");
+        }
+
+        var inputLength = inputPoints.Length;
+        var points = new Vector3[subdivisions + 1];
+        tangents = new Vector3[subdivisions + 1];
+        normals = new Vector3[subdivisions + 1];
+        for (int i = 0; i < subdivisions; i++) {
+            var t = 1f * i / subdivisions * (inputLength - 1);
             var idx = Mathf.FloorToInt (t);
             t %= 1f;
-            var t2 = t * t;
-            var t3 = t2 * t;
+            points[i] = GetPoint (inputPoints[idx], inputPoints[idx + 1], inputTangents[idx], inputTangents[idx + 1], t);
 
-            var pointA = nodes[idx].position;
-            var pointB = nodes[idx + 1].position;
-            var dirA = nodes[idx].forward * nodes[idx].localScale.z;
-            var dirB = nodes[idx + 1].forward * nodes[idx + 1].localScale.z;
+            var tangent = GetTangent (inputPoints[idx], inputPoints[idx + 1], inputTangents[idx], inputTangents[idx + 1], t);
+            tangent = tangent.normalized;
+            tangents[i] = tangent;
 
-            var point = (2 * t3 - 3 * t2 + 1) * pointA + (t3 - 2 * t2 + t) * dirA + (-2 * t3 + 3 * t2) * pointB + (t3 - t2) * dirB;
-            points[i] = point;
+            var upPoint = GetPoint (inputPoints[idx] + inputUps[idx], inputPoints[idx + 1] + inputUps[idx + 1], inputTangents[idx], inputTangents[idx + 1], t);
+            var up = upPoint - points[i];
+            var normal = Vector3.Cross (up, tangent).normalized;
+            normals[i] = normal;
         }
-        points[subdivisions] = nodes[nodes.Length - 1].position;
+        points[subdivisions] = inputPoints[inputLength - 1];
+        tangents[subdivisions] = inputTangents[inputLength - 1];
+        normals[subdivisions] = Vector3.Cross (inputUps[inputLength - 1], inputTangents[inputLength - 1]).normalized;;
         return points;
     }
 
     public static Vector3[] GetPoints (Transform[] nodes, int subdivisions, out Vector3[] tangents, out Vector3[] normals) {
-        var points = new Vector3[subdivisions + 1];
-        tangents = new Vector3[subdivisions + 1];
-        normals = new Vector3[subdivisions + 1];
-        for (int i = 0; i < subdivisions; i++) {
-            var t = 1f * i / subdivisions * (nodes.Length - 1);
-            var idx = Mathf.FloorToInt (t);
-            var pointFrom = nodes[idx].position;
-            var pointTo = nodes[idx + 1].position;
-
-            var pointA = pointFrom;
-            var pointB = pointTo;
-            var dirA = nodes[idx].forward * nodes[idx].localScale.z;
-            var dirB = nodes[idx + 1].forward * nodes[idx + 1].localScale.z;
-
-            t %= 1f;
-            var t2 = t * t;
-            var t3 = t2 * t;
-            var point = (2 * t3 - 3 * t2 + 1) * pointA + (t3 - 2 * t2 + t) * dirA + (-2 * t3 + 3 * t2) * pointB + (t3 - t2) * dirB;
-            var tangent = (6 * t2 - 6 * t) * pointA + (3 * t2 - 4 * t + 1) * dirA + (-6 * t2 + 6 * t) * pointB + (3 * t2 - 2 * t) * dirB;
-            tangent = tangent.normalized;
-
-            pointA = pointFrom + nodes[idx].up;
-            pointB = pointTo + nodes[idx + 1].up;
-            var upPoint = (2 * t3 - 3 * t2 + 1) * pointA + (t3 - 2 * t2 + t) * dirA + (-2 * t3 + 3 * t2) * pointB + (t3 - t2) * dirB;
-            var up = upPoint - point;
-            var normal = Vector3.Cross (up, tangent).normalized;
-
-            points[i] = point;
-            tangents[i] = tangent;
-            normals[i] = normal;
+        var inputPoints = new Vector3[nodes.Length];
+        var inputTangents = new Vector3[nodes.Length];
+        var inputUps = new Vector3[nodes.Length];
+        for (int i = 0; i < nodes.Length; i++) {
+            inputPoints[i] = nodes[i].position;
+            inputTangents[i] = nodes[i].forward * nodes[i].localScale.z;
+            inputUps[i] = nodes[i].up;
         }
-        points[subdivisions] = nodes[nodes.Length - 1].position;
-        tangents[subdivisions] = nodes[nodes.Length - 1].forward;
-        normals[subdivisions] = nodes[nodes.Length - 1].right;
-        return points;
+        return GetPoints (inputPoints, inputTangents, inputUps, subdivisions, out tangents, out normals);
     }
 
     public static Vector3[] GetPoints (Transform[] nodes, Vector2 offset, int subdivisions, out Vector3[] tangents, out Vector3[] normals) {
-        var points = new Vector3[subdivisions + 1];
-        tangents = new Vector3[subdivisions + 1];
-        normals = new Vector3[subdivisions + 1];
-        for (int i = 0; i < subdivisions; i++) {
-            var t = 1f * i / subdivisions * (nodes.Length - 1);
-            var idx = Mathf.FloorToInt (t);
-            var pointFrom = nodes[idx].position + nodes[idx].right * nodes[idx].localScale.x * offset.x + nodes[idx].up * nodes[idx].localScale.y * offset.y;
-            var pointTo = nodes[idx + 1].position + nodes[idx + 1].right * nodes[idx + 1].localScale.x * offset.x + nodes[idx + 1].up * nodes[idx + 1].localScale.y * offset.y;
-
-            var pointA = pointFrom;
-            var pointB = pointTo;
-            var dirA = nodes[idx].forward * nodes[idx].localScale.z;
-            var dirB = nodes[idx + 1].forward * nodes[idx + 1].localScale.z;
-
-            t %= 1f;
-            var t2 = t * t;
-            var t3 = t2 * t;
-            var point = (2 * t3 - 3 * t2 + 1) * pointA + (t3 - 2 * t2 + t) * dirA + (-2 * t3 + 3 * t2) * pointB + (t3 - t2) * dirB;
-            var tangent = (6 * t2 - 6 * t) * pointA + (3 * t2 - 4 * t + 1) * dirA + (-6 * t2 + 6 * t) * pointB + (3 * t2 - 2 * t) * dirB;
-            tangent = tangent.normalized;
-
-            pointA = pointFrom + nodes[idx].up;
-            pointB = pointTo + nodes[idx + 1].up;
-            var upPoint = (2 * t3 - 3 * t2 + 1) * pointA + (t3 - 2 * t2 + t) * dirA + (-2 * t3 + 3 * t2) * pointB + (t3 - t2) * dirB;
-            var up = upPoint - point;
-            var normal = Vector3.Cross (up, tangent).normalized;
-
-            points[i] = point;
-            tangents[i] = tangent;
-            normals[i] = normal;
+        var inputPoints = new Vector3[nodes.Length];
+        var inputTangents = new Vector3[nodes.Length];
+        var inputUps = new Vector3[nodes.Length];
+        for (int i = 0; i < nodes.Length; i++) {
+            inputPoints[i] = nodes[i].position + nodes[i].right * nodes[i].localScale.x * offset.x + nodes[i].up * nodes[i].localScale.y * offset.y;
+            inputTangents[i] = nodes[i].forward * nodes[i].localScale.z;
+            inputUps[i] = nodes[i].up;
         }
-        points[subdivisions] = nodes[nodes.Length - 1].position + nodes[nodes.Length - 1].right * offset.x + nodes[nodes.Length - 1].up * offset.y;;
-        tangents[subdivisions] = nodes[nodes.Length - 1].forward;
-        normals[subdivisions] = nodes[nodes.Length - 1].right;
-        return points;
+        return GetPoints (inputPoints, inputTangents, inputUps, subdivisions, out tangents, out normals);
     }
 }

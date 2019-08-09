@@ -9,13 +9,14 @@ public class TubeRenderer : MonoBehaviour {
     [SerializeField] bool displayLine;
     [SerializeField] bool displayDirection;
     [SerializeField] bool displayRegionCircle;
+    [SerializeField] bool displayRegionLink;
 
     [Header ("Tube")]
     [SerializeField] TubeTemplate tubeTemplate;
     [SerializeField] Material material;
     [SerializeField] float radius = 1f;
 
-    [Header ("Poisson Disc Sampling")]
+    [Header ("Poisson Disc Sampling Instancing")]
     [SerializeField] bool enableInstancing;
     [SerializeField] float distributeRadius = 1f;
     [SerializeField] float regionRadius = 1f;
@@ -128,16 +129,34 @@ public class TubeRenderer : MonoBehaviour {
 
         if (displayRegionCircle) {
             Gizmos.color = Color.white;
-            foreach (var node in nodes) {
-                var center = node.position;
-                var right = node.right;
-                var up = node.up;
-                for (int i = 0; i < 16; i++) {
-                    var phi = Mathf.PI * 2 * (i / 16f);
-                    var pointA = center + right * regionRadius * Mathf.Cos (phi) + up * regionRadius * Mathf.Sin (phi);
-                    phi = Mathf.PI * 2 * ((i + 1) / 16f);
-                    var pointB = center + right * regionRadius * Mathf.Cos (phi) + up * regionRadius * Mathf.Sin (phi);
+            for (int i = 0; i < nodes.Length; i++) {
+                var center = nodes[i].position;
+                var right = nodes[i].right * nodes[i].localScale.x;
+                var up = nodes[i].up * nodes[i].localScale.y;
+                for (int j = 0; j < 16; j++) {
+                    var phi1 = Mathf.PI * 2 * (j / 16f);
+                    var phi2 = Mathf.PI * 2 * ((j + 1) / 16f);
+                    var pointA = center + right * regionRadius * Mathf.Cos (phi1) + up * regionRadius * Mathf.Sin (phi1);
+                    var pointB = center + right * regionRadius * Mathf.Cos (phi2) + up * regionRadius * Mathf.Sin (phi2);
                     Gizmos.DrawLine (pointA, pointB);
+                }
+            }
+        }
+
+        if (displayRegionLink) {
+            Gizmos.color = Color.yellow;
+            for (int i = 1; i < nodes.Length; i++) {
+                var center = nodes[i].position;
+                var right = nodes[i].right * nodes[i].localScale.x;
+                var up = nodes[i].up * nodes[i].localScale.y;
+                var preCenter = nodes[i - 1].position;
+                var preRight = nodes[i - 1].right * nodes[i - 1].localScale.x;
+                var preUp = nodes[i - 1].up * nodes[i - 1].localScale.y;
+                for (int j = 0; j < 8; j++) {
+                    var phi1 = Mathf.PI * 2 * (j / 8f);
+                    var point = center + right * regionRadius * Mathf.Cos (phi1) + up * regionRadius * Mathf.Sin (phi1);
+                    var prePoint = preCenter + preRight * regionRadius * Mathf.Cos (phi1) + preUp * regionRadius * Mathf.Sin (phi1);
+                    Gizmos.DrawLine (prePoint, point);
                 }
             }
         }
@@ -145,6 +164,7 @@ public class TubeRenderer : MonoBehaviour {
         if (displayLine || displayDirection) {
             Vector3[] points, tangents, normals;
             points = HermiteCurve.GetPoints (nodes, tubeTemplate.segments, out tangents, out normals);
+            points = HermiteCurve.GetPoints (nodes, tubeTemplate.segments);
 
             if (displayLine) {
                 Gizmos.color = Color.white;
